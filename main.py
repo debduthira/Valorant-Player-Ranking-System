@@ -4,6 +4,13 @@ from supabase import create_client, Client
 import os
 from dotenv import load_dotenv
 
+st.set_page_config(
+    page_title="Valorant Player Statistics Tracker",
+    page_icon="https://img.icons8.com/?size=100&id=aUZxT3Erwill&format=png&color=000000",  # Emoji or image URL
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 # Load environment variables from .env file
 load_dotenv()
 
