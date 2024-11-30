@@ -22,21 +22,21 @@ This Streamlit application allows users to track and analyze player performance 
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/your-username/player-stats-tracker.git
+   git clone https://github.com/debduthira/Valorant-Player-Ranking-System.git
    ```
 2. Install required libraries:
    ```bash
-   pip install streamlit pandas sqlite3
+   pip install -r requirements.txt
    ```
 
 3. Run the application:
    ```bash
-   streamlit run app.py
+   streamlit run main.py
    ```
 
 ## Database Structure
 
-The application uses an SQLite database (`player_stats.db`) with a single table, `matches`, containing the following fields:
+The application uses Supabase Postgres database with a single table, `matches`, containing the following fields:
 
 - `id`: Unique identifier for each match record
 - `player_name`: Name of the player
@@ -71,7 +71,6 @@ The application uses an SQLite database (`player_stats.db`) with a single table,
 
 - `Streamlit`: Web framework for building interactive applications
 - `Pandas`: Data manipulation and analysis
-- `SQLite3`: Database management system
 
 ## Author
 
