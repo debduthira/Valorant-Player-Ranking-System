@@ -1,55 +1,60 @@
 import streamlit as st
 import pandas as pd
-from supabase import create_client, Client
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import os
 from dotenv import load_dotenv
 
+# --- Streamlit Page Setup ---
 st.set_page_config(
     page_title="Valorant Player Statistics Tracker",
-    page_icon="https://img.icons8.com/?size=100&id=aUZxT3Erwill&format=png&color=000000",  # Emoji or image URL
+    page_icon="https://img.icons8.com/?size=100&id=aUZxT3Erwill&format=png&color=000000",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Load environment variables from .env file
+# --- Load Environment Variables ---
 load_dotenv()
 
-# Supabase connection setup
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Option 1: Load from .env (recommended)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Function to calculate K/D ratio
+# --- Database Connection ---
+def get_connection():
+    return psycopg2.connect(
+        DATABASE_URL,
+        sslmode="require",
+        cursor_factory=RealDictCursor
+    )
+
+# --- Helper Functions ---
 def calculate_kd_ratio(kills, deaths):
     return kills if deaths == 0 else kills / deaths
 
-# Function to add match details to the Supabase database
 def add_match(player_name, win_loss, map_name, agent, current_rank, acs, econ_rating, kills, deaths, assists):
-    response = supabase.table("matches").insert({
-        "player_name": player_name,
-        "win_loss": win_loss,
-        "map_name": map_name,
-        "agent": agent,
-        "current_rank": current_rank,
-        "acs": acs,
-        "econ_rating": econ_rating,
-        "kills": kills,
-        "deaths": deaths,
-        "assists": assists
-    }).execute()
-    return response
+    query = """
+        INSERT INTO matches (player_name, win_loss, map_name, agent, current_rank, acs, econ_rating, kills, deaths, assists)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, (player_name, win_loss, map_name, agent, current_rank, acs, econ_rating, kills, deaths, assists))
+            conn.commit()
 
-# Function to delete a match from the Supabase database
 def delete_match(record_id):
-    response = supabase.table("matches").delete().eq("id", record_id).execute()
-    return response
+    query = "DELETE FROM matches WHERE id = %s"
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, (record_id,))
+            conn.commit()
 
-# Function to fetch all matches from the Supabase database
 def fetch_matches():
-    response = supabase.table("matches").select("*").execute()
-    return response.data 
+    query = "SELECT * FROM matches ORDER BY id DESC"
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query)
+            return cur.fetchall()
 
-# Function to aggregate player statistics
 def aggregate_player_stats(data):
     if not data:
         return pd.DataFrame()
@@ -71,16 +76,16 @@ def aggregate_player_stats(data):
     )
     return aggregated_df
 
-# Function to rank players based on aggregated ACS
 def rank_players(aggregated_df):
     ranked_df = aggregated_df.sort_values(by="avg_acs", ascending=False).reset_index(drop=True)
     ranked_df.index += 1
     return ranked_df
 
-# Streamlit app layout
+# --- Streamlit Layout ---
+
 st.title("Player Statistics Tracker")
 
-# Input form for match details
+# Add Match Form
 with st.form("match_form"):
     st.subheader("Enter Match Details")
     player_name = st.text_input("Player Name")
@@ -94,11 +99,12 @@ with st.form("match_form"):
     deaths = st.number_input("Deaths", min_value=0)
     assists = st.number_input("Assists", min_value=0)
     submitted = st.form_submit_button("Add Match")
+
     if submitted and player_name:
         add_match(player_name, win_loss, map_name, agent, current_rank, acs, econ_rating, kills, deaths, assists)
-        st.success("Match details added successfully!")
+        st.success("✅ Match details added successfully!")
 
-# Input form for deleting a record
+# Delete Record Form
 with st.form("delete_form"):
     st.subheader("Delete a Record")
     match_data = fetch_matches()
@@ -109,9 +115,9 @@ with st.form("delete_form"):
         if st.form_submit_button("Delete Record"):
             record_id = int(record_to_delete.split(" | ")[0])
             delete_match(record_id)
-            st.success("Record deleted successfully!")
+            st.success("🗑️ Record deleted successfully!")
 
-# Display match data and aggregated stats
+# Display Data
 match_data = fetch_matches()
 if match_data:
     df = pd.DataFrame(match_data)
